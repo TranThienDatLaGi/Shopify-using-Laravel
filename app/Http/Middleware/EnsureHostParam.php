@@ -9,7 +9,6 @@ class EnsureHostParam
 {
     public function handle(Request $request, Closure $next)
     {
-        // nếu thiếu host & đã lưu trong session -> trả về 1 view JS để top-level redirect
         if (!$request->has('host') && session()->has('shopify_host')) {
             $host = session('shopify_host');
             $target = $request->fullUrlWithQuery(['host' => $host, 'shop' => session('shopify_shop') ?? $request->get('shop')]);

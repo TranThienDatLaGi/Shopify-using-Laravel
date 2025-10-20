@@ -3,12 +3,17 @@
         @php
             $node = $product['node'];
             $image = $node['media']['edges'][0]['node']['image']['url'] ?? 'https://via.placeholder.com/40';
-            $collections = [];
+
+            // ✅ Lấy Price & Compare At Price
+            $price = $node['variants']['edges'][0]['node']['price'] ?? null;
+            $compare = $node['variants']['edges'][0]['node']['compareAtPrice'] ?? null;
+
+            $tablecollections = [];
             if (!empty($node['collections']['edges']) && is_array($node['collections']['edges'])) {
                 foreach ($node['collections']['edges'] as $cEdge) {
                     $cNode = $cEdge['node'] ?? null;
                     if ($cNode) {
-                        $collections[] = [
+                        $tablecollections[] = [
                             'title' => $cNode['title'] ?? '-',
                             'handle' => $cNode['handle'] ?? null,
                             'id' => $cNode['id'] ?? null,
@@ -29,6 +34,21 @@
                 </span>
             </td>
             <td>
+                @if($price)
+                    ${{ number_format($price, 2) }}
+                @else
+                    -
+                @endif
+            </td>
+            <td>
+                @if($compare)
+                    ${{ number_format($compare, 2) }}
+                @else
+                    -
+                @endif
+            </td>
+
+            <td>
                 {{ $node['totalInventory'] ?? 0 }} in stock
                 for {{ $node['variantsCount']['count'] ?? 0 }} variants
             </td>
@@ -36,8 +56,8 @@
             <td>{{ $node['productType'] ?? '-' }}</td>
             <td>{{ !empty($node['tags']) ? implode(', ', $node['tags']) : '-' }}</td>
             <td>
-                @if (!empty($collections))
-                    @foreach ($collections as $c)
+                @if (!empty($tablecollections))
+                    @foreach ($tablecollections as $c)
                         <span data-collection-id="{{ $c['id'] }}">{{ $c['title'] }}</span>
                         @if (!$loop->last), @endif
                     @endforeach
@@ -46,6 +66,5 @@
                 @endif
             </td>
         </tr>
-
     @endforeach
 </tbody>

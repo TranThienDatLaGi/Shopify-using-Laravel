@@ -3,10 +3,8 @@
 
 <head>
     <meta charset="utf-8">
-    {{-- <link rel="stylesheet" href="{{ asset('css/style.css') }}"> --}}
     <link rel="stylesheet" href="{{ secure_asset('css/style.css') }}">
 </head>
-
 <body>
     <div class="container">
         <div class="header">
@@ -220,6 +218,8 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
                     <th><input type="checkbox" id="selectAll"></th>
                     <th>Product</th>
                     <th>Status</th>
+                    <th>Price</th>
+                    <th>Compare</th>
                     <th>Inventory</th>
                     <th>Vendor</th>
                     <th>Type</th>
@@ -229,9 +229,14 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
             </thead>
             <tbody id="productTableBody">
                 @foreach ($products ?? [] as $product)
-                       @php
+                    @php
     $node = $product['node'];
     $image = $node['media']['edges'][0]['node']['image']['url'] ?? 'https://via.placeholder.com/40';
+
+    // ✅ Lấy Price & Compare At Price
+    $price = $node['variants']['edges'][0]['node']['price'] ?? null;
+    $compare = $node['variants']['edges'][0]['node']['compareAtPrice'] ?? null;
+
     $tablecollections = [];
     if (!empty($node['collections']['edges']) && is_array($node['collections']['edges'])) {
         foreach ($node['collections']['edges'] as $cEdge) {
@@ -246,36 +251,50 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
         }
     }
                     @endphp
-                        <tr>
-                            <td><input type="checkbox" class="row-check" data-product-id="{{ $node['id'] }}"></td>
-                            <td>
-                                <img src="{{ $image }}" alt="" width="40">
-                                {{ $node['title'] }}
-                            </td>
-                            <td>
-                                <span class="status {{ strtolower($node['status']) }}">
-                                    {{ $node['status'] }}
-                                </span>
-                            </td>
-                            <td>
-                                {{ $node['totalInventory'] ?? 0 }} in stock
-                                for {{ $node['variantsCount']['count'] ?? 0 }} variants
-                            </td>
-                            <td>{{ $node['vendor'] ?? '-' }}</td>
-                            <td>{{ $node['productType'] ?? '-' }}</td>
-                            <td>{{ !empty($node['tags']) ? implode(', ', $node['tags']) : '-' }}</td>
-                            <td>
-                                @if (!empty($tablecollections))
-                                    @foreach ($tablecollections as $c)
-                                        <span data-collection-id="{{ $c['id'] }}">{{ $c['title'] }}</span>
-                                        @if (!$loop->last), @endif
-                                    @endforeach
-                                @else
-                                    -
-                                @endif
-                            </td>
-                        </tr>
+                    <tr>
+                        <td><input type="checkbox" class="row-check" data-product-id="{{ $node['id'] }}"></td>
+                        <td>
+                            <img src="{{ $image }}" alt="" width="40">
+                            {{ $node['title'] }}
+                        </td>
+                        <td>
+                            <span class="status {{ strtolower($node['status']) }}">
+                                {{ $node['status'] }}
+                            </span>
+                        </td>
+                        <td>
+                            @if($price)
+                                ${{ number_format($price, 2) }}
+                            @else
+                                -
+                            @endif
+                        </td>
+                        <td>
+                            @if($compare)
+                                ${{ number_format($compare, 2) }}
+                            @else
+                                -
+                            @endif
+                        </td>
 
+                        <td>
+                            {{ $node['totalInventory'] ?? 0 }} in stock
+                            for {{ $node['variantsCount']['count'] ?? 0 }} variants
+                        </td>
+                        <td>{{ $node['vendor'] ?? '-' }}</td>
+                        <td>{{ $node['productType'] ?? '-' }}</td>
+                        <td>{{ !empty($node['tags']) ? implode(', ', $node['tags']) : '-' }}</td>
+                        <td>
+                            @if (!empty($tablecollections))
+                                @foreach ($tablecollections as $c)
+                                    <span data-collection-id="{{ $c['id'] }}">{{ $c['title'] }}</span>
+                                    @if (!$loop->last), @endif
+                                @endforeach
+                            @else
+                                -
+                            @endif
+                        </td>
+                    </tr>
                 @endforeach
             </tbody>
         </table>
@@ -300,7 +319,6 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
             @endif
         </div>
     </div>
-    
     <script src="https://unpkg.com/@shopify/app-bridge@3.0.0/umd/index.js"></script>
     <script src="https://unpkg.com/@shopify/app-bridge/actions@3.0.0/umd/index.js"></script>
     <script src="https://unpkg.com/@shopify/app-bridge-utils@3.0.0/umd/index.js"></script>
@@ -452,7 +470,7 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
         function showToast(message, isError = false) {
                 const toast = Toast.create(app, {
                     message: message,
-                    duration: 3000, // 3 giây
+                    duration: 3000,
                     isError: isError
                 });
                 toast.dispatch(Toast.Action.SHOW);
@@ -467,27 +485,21 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
         async function applyFilters(cursor = "", direction = "") {
             const url = new URL("/products", window.location.origin);
             const token = await AppBridgeUtils.getSessionToken(app);
-            // ✅ Chỉ set param cần thiết
             if (HOST) url.searchParams.set("host", HOST);
             if (SHOP) url.searchParams.set("shop", SHOP);
             url.searchParams.set("embedded", "1");
-            // --- Lấy filter từ #searchBar ---
             document.querySelectorAll("#searchBar input").forEach((input) => {
                 if ((input.type === "checkbox" || input.type === "radio") && !input.checked) return;
                 if (input.value) url.searchParams.set(input.name, input.value);
             });
-
-            // Collection
             const collection = document.querySelector("input[name='collection']:checked");
             if (collection) url.searchParams.set("collection", collection.value);
 
-            // Sort & Order
             const sort = document.querySelector(".sort-menu input[name='sort']:checked");
             const order = document.querySelector(".sort-menu input[name='order']:checked");
             if (sort) url.searchParams.set("sort", sort.value);
             if (order) url.searchParams.set("order", order.value);
 
-            // Pagination
             if (cursor) {
                 if (direction === "prev") {
                     url.searchParams.set("before", cursor);
@@ -508,17 +520,15 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
                     },
                 });
                 const data = await response.json();
-                // Cập nhật phần table
+
                 const tableContainer = document.querySelector("#productTableBody");
                 if (tableContainer) tableContainer.outerHTML = data.table;
                 else console.warn("Không tìm thấy #productTableBody trong DOM");
 
-                // Cập nhật phần pagination
                 const paginationContainer = document.querySelector("#paginationContainer");
                 if (paginationContainer) paginationContainer.innerHTML = data.pagination;
                 else console.warn("Không tìm thấy #paginationContainer trong DOM");
 
-                // ✅ Cập nhật query trên URL (không reload)
                 window.history.pushState({}, "", url.pathname + "?" + url.searchParams.toString());
 
             } catch (err) {
@@ -550,11 +560,9 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
         }
     </script>
     <script>
-    // Apply khi bấm Enter trong ô search
         document.getElementById("searchInput").addEventListener("keyup", (e) => {
             if (e.key === "Enter") applyFilters();
         });
-        // Apply khi bấm nút "Apply"
         document.querySelector(".apply-filter").addEventListener("click", () => {
             applyFilters();
         });
@@ -584,8 +592,6 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
         async function sendBulkStatus(status) {
             try {
                 const token = await AppBridgeUtils.getSessionToken(app);
-
-                // Lấy danh sách sản phẩm đã chọn
                 const selectedIds = Array.from(
                     document.querySelectorAll('.row-check:checked')
                 ).map(cb => cb.dataset.productId);
@@ -594,8 +600,6 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
                     alert("Please select at least one product");
                     return;
                 }
-
-                // Gửi request tới route Laravel
                 const res = await fetch("/products/bulk-action", {
                     method: "POST",
                     headers: {
@@ -611,8 +615,6 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
                         shop: SHOP,
                     })
                 });
-
-                // Xử lý kết quả
                 if (!res.ok) {
                     const text = await res.text();
                     console.error("Request failed:", text);
@@ -624,7 +626,6 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
 
                 if (data.batch_id) {
                     let finished = false;
-                    // Hiển thị toast đang xử lý
                     showToast("⏳ Processing... Please wait");
 
                     while (!finished) {
@@ -633,15 +634,14 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
 
                         if (statusData.finished) {
                             finished = true;
-                            // ✅ chỉ gọi khi batch đã xong
                             showToast("✅ Status updated successfully!");
                             selectedIds.forEach(id => {
                                 const row = document.querySelector(`.row-check[data-product-id="${id}"]`)?.closest('tr');
                                 if (row) {
                                     const statusEl = row.querySelector('.status');
                                     if (statusEl) {
-                                        statusEl.textContent = status;        // set text status mới
-                                        statusEl.className = `status ${status.toLowerCase()}`; // đổi class theo status
+                                        statusEl.textContent = status;        
+                                        statusEl.className = `status ${status.toLowerCase()}`; 
                                     }
                                 }
                             });
@@ -649,9 +649,7 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
                             showToast("❌ Some jobs failed!");
                             break;
                         } else {
-                            // Bạn có thể hiển thị tiến độ nếu muốn
-                            // console.log(`Batch progress: ${statusData.progress}%`);
-                            await new Promise(resolve => setTimeout(resolve, 1000)); // đợi 1s rồi check lại
+                            await new Promise(resolve => setTimeout(resolve, 1000));
                         }
                     }
                 }
@@ -664,7 +662,6 @@ $currentOrder = request('order', 'asc');  // fallback mặc định
 
     </script>
     @php
-// Chuẩn hóa dữ liệu collections thành mảng [{id, name}]
 $collectionsArray = collect($collections ?? [])->map(function ($collection) {
     return [
         'id' => is_array($collection) ? ($collection['node']['id'] ?? '') : $collection,
@@ -673,10 +670,8 @@ $collectionsArray = collect($collections ?? [])->map(function ($collection) {
 });
     @endphp
     <script>
-        let currentType = null;   // "tags" | "collections"
-        let currentAction = null; // "add" | "remove"
-
-        // Dữ liệu từ backend
+        let currentType = null;   
+        let currentAction = null; 
         const tagsData = @json($tags ?? []);
         const collectionsData = @json($collections ?? []);
 
@@ -704,8 +699,6 @@ $collectionsArray = collect($collections ?? [])->map(function ($collection) {
 
                 const label = document.createElement("label");
                 label.className = "tag-item";
-
-                // Nếu là collections → radio (chỉ chọn 1)
                 if (type === "collections") {
                     label.innerHTML = `
                         <input type="radio" name="collection" value="${id}">
@@ -737,134 +730,128 @@ $collectionsArray = collect($collections ?? [])->map(function ($collection) {
         }
 
         async function saveAction() {
-                try {
-                    const token = await AppBridgeUtils.getSessionToken(app);
+        try {
+            const token = await AppBridgeUtils.getSessionToken(app);
 
-                    let selectedProducts = Array.from(
-                        document.querySelectorAll('.row-check:checked')
-                    ).map(cb => cb.dataset.productId);
+            let selectedProducts = Array.from(
+                document.querySelectorAll('.row-check:checked')
+            ).map(cb => cb.dataset.productId);
 
-                    if (selectedProducts.length === 0) {
-                        alert("Please select at least one product");
-                        return;
+            if (selectedProducts.length === 0) {
+                alert("Please select at least one product");
+                return;
+            }
+
+            let selectedItems = [];
+            if (currentType === "collections") {
+                const radio = document.querySelector(`#itemList input[type=radio]:checked`);
+                if (radio) selectedItems.push(radio.value);
+            } else {
+                selectedItems = Array.from(
+                    document.querySelectorAll(`#itemList input[type=checkbox]:checked`)
+                ).map(el => el.value);
+            }
+
+            if (selectedItems.length === 0) {
+                alert(`Please select at least one ${currentType}`);
+                return;
+            }
+            let actionName;
+            if (currentType === "tags") {
+                actionName = currentAction === "add" ? "add_tags" : "remove_tags";
+            } else if (currentType === "collections") {
+                actionName = currentAction === "add" ? "add_collection" : "remove_collection";
+            }
+
+            const payload = {};
+            if (currentType === "tags") {
+                payload.tags = selectedItems;
+            } else {
+                payload.collection_id = selectedItems[0]; // chỉ 1 collection
+            }
+            if (currentType === "collections") {
+                const targetCollectionId = selectedItems[0];
+
+                selectedProducts = selectedProducts.filter(pid => {
+                    const row = document.querySelector(`.row-check[data-product-id="${pid}"]`).closest("tr");
+                    if (!row) return false;
+                    const rowCollections = Array.from(row.querySelectorAll("[data-collection-id]"))
+                        .map(el => el.dataset.collectionId);
+                    if (currentAction === "add") {
+                        return !rowCollections.includes(targetCollectionId);
+                    } else if (currentAction === "remove") {
+                        return rowCollections.includes(targetCollectionId);
                     }
+                    return true;
+                });
 
-                    let selectedItems = [];
-                    if (currentType === "collections") {
-                        const radio = document.querySelector(`#itemList input[type=radio]:checked`);
-                        if (radio) selectedItems.push(radio.value);
-                    } else {
-                        selectedItems = Array.from(
-                            document.querySelectorAll(`#itemList input[type=checkbox]:checked`)
-                        ).map(el => el.value);
-                    }
-
-                    if (selectedItems.length === 0) {
-                        alert(`Please select at least one ${currentType}`);
-                        return;
-                    }
-
-                    // Xây dựng action name để backend xử lý đúng
-                    let actionName;
-                    if (currentType === "tags") {
-                        actionName = currentAction === "add" ? "add_tags" : "remove_tags";
-                    } else if (currentType === "collections") {
-                        actionName = currentAction === "add" ? "add_collection" : "remove_collection";
-                    }
-
-                    const payload = {};
-                    if (currentType === "tags") {
-                        payload.tags = selectedItems;
-                    } else {
-                        payload.collection_id = selectedItems[0]; // chỉ 1 collection
-                    }
-
-                    // 🔹 Lọc product theo logic collection
-                    if (currentType === "collections") {
-                        const targetCollectionId = selectedItems[0];
-
-                        selectedProducts = selectedProducts.filter(pid => {
-                            // tìm hàng trong table tương ứng với product
-                            const row = document.querySelector(`.row-check[data-product-id="${pid}"]`).closest("tr");
-                            if (!row) return false;
-
-                            // lấy danh sách collection-id trong row (nếu có)
-                            const rowCollections = Array.from(row.querySelectorAll("[data-collection-id]"))
-                                .map(el => el.dataset.collectionId);
-
-                            if (currentAction === "add") {
-                                // bỏ qua nếu product đã có collection
-                                return !rowCollections.includes(targetCollectionId);
-                            } else if (currentAction === "remove") {
-                                // chỉ giữ nếu product có collection đó
-                                return rowCollections.includes(targetCollectionId);
-                            }
-                            return true;
-                        });
-
-                        if (selectedProducts.length === 0) {
-                            alert("No valid products for this action (all filtered out).");
-                            return;
-                        }
-                    }
-
-                    console.log('collection_id', selectedItems);
-                    console.log('filtered selectedProducts', selectedProducts);
-                    console.log('SHOP', SHOP);
-                    const res = await fetch("/products/bulk-action", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "Accept": "application/json",
-                            "Authorization": `Bearer ${token}`,
-                            "X-CSRF-TOKEN": "{{ csrf_token() }}"
-                        },
-                        body: JSON.stringify({
-                            product_ids: selectedProducts,
-                            action: actionName,
-                            payload: payload,
-                            shop: SHOP,
-                        })
-                    });
-
-                    if (!res.ok) {
-                        const text = await res.text();
-                        console.error("Request failed:", text);
-                        showToast("❌ Failed to apply action", true);
-                        return;
-                    }
-
-                    const data = await res.json();
-                    if (data.batch_id) {
-                        let finished = false;
-                        showToast("⏳ Processing... Please wait");
-
-                        while (!finished) {
-                            const statusRes = await fetch(`/products/bulk-action/status/${data.batch_id}`);
-                            const statusData = await statusRes.json();
-
-                            if (statusData.finished) {
-                                finished = true;
-                                showToast("✅ Action completed successfully!");
-                            } else if (statusData.failed) {
-                                showToast("❌ Some jobs failed!");
-                                break;
-                            } else {
-                                await new Promise(resolve => setTimeout(resolve, 1000));
-                            }
-                        }
-                    }
-                    closeModal();
-
-                   document.querySelectorAll("input[name='collection']").forEach(input => input.checked = false);
-                     applyFilters();
-                } catch (err) {
-                    console.error(err);
-                    showToast("⚠️ Error: " + err.message);
+                if (selectedProducts.length === 0) {
+                    alert("No valid products for this action (all filtered out).");
+                    return;
                 }
             }
 
+            // console.log('collection_id', selectedItems);
+            // console.log('filtered selectedProducts', selectedProducts);
+            // console.log('SHOP', SHOP);
+            const res = await fetch("/bulk/products", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                    "X-CSRF-TOKEN": "{{ csrf_token() }}", 
+                },
+                body: JSON.stringify({
+                    product_ids: selectedProducts,
+                    action: actionName,
+                    payload: payload,
+                    shop: SHOP,
+                }),
+            });
 
+
+            if (!res.ok) {
+                const text = await res.text();
+                console.error("Request failed:", text);
+                showToast("❌ Failed to apply action", true);
+                return;
+            }
+            const data = await res.json();
+            if (data.batch_id) {
+                let finished = false;
+                showToast("⏳ Processing... Please wait");
+
+                while (!finished) {
+                    const statusRes = await fetch(`/bulk/status/${data.batch_id}`, {
+                        method: "GET",
+                        headers: {
+                            "Accept": "application/json",
+                            "Authorization": `Bearer ${token}`,
+                        },
+                    });
+
+                    const statusData = await statusRes.json();
+
+                    if (statusData.finished) {
+                        finished = true;
+                        showToast("✅ Action completed successfully!");
+                    } else if (statusData.failed) {
+                        showToast("❌ Some jobs failed!");
+                        break;
+                    } else {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                }
+            }
+            closeModal()
+            document.querySelectorAll("input[name='collection']").forEach(input => input.checked = false);
+            applyFilters();
+        } catch (err) {
+            console.error(err);
+            showToast("⚠️ Error: " + err.message);
+        }
+    }
         function capitalize(text) {
             return text.charAt(0).toUpperCase() + text.slice(1);
         }

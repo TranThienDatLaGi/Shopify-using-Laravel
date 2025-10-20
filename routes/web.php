@@ -1,7 +1,8 @@
 <?php
-
-use App\Http\Controllers\ProductGraphQLController;
-use Illuminate\Support\Facades\Bus;
+use App\Http\Controllers\BulkActionController;
+use App\Http\Controllers\ProductController;
+use App\Http\Controllers\RuleController;
+use App\Http\Controllers\ShopifyDataController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware(['verify.shopify'])->group(function () {
@@ -9,28 +10,32 @@ Route::middleware(['verify.shopify'])->group(function () {
         return view('welcome');
     })->name('home');
 
-    Route::get('/products', [ProductGraphQLController::class, 'index'])
+    Route::get('/products', [ProductController::class, 'index'])
         ->name('product.index');
 
-    Route::get('/orders', function () {
-        return view('order');
-    })->name('orders.index');
+    Route::prefix('bulk')->group(function () {
+        // Bulk action cho product
+        Route::post('/products', [BulkActionController::class, 'product'])
+            ->name('bulk.products');
+    });
 
-    Route::post('/products/bulk-action', [ProductGraphQLController::class, 'bulkAction'])
-        ->name('products.bulk-action');
+    Route::get('/rules', [RuleController::class, 'index'])->name('rules.index');
+    Route::get('/rules/create', [RuleController::class, 'create'])
+        ->name('rules.create');
+    Route::post('/rules', [RuleController::class, 'store'])->name('rules.store');
+    Route::get('/rules/{id}/edit', [RuleController::class, 'edit'])->name('rules.edit');
+    Route::put('/rules/{id}', [RuleController::class, 'update'])->name('rules.update');
+    Route::put('/rules/{id}/status', [RuleController::class, 'updateStatus'])
+        ->name('rules.updateStatus');
+        
+    Route::post('/rules/{id}/duplicate', [RuleController::class, 'duplicate'])
+        ->name('rules.duplicate');
+    Route::delete('/rules/{id}', [RuleController::class, 'destroy'])
+        ->name('rules.destroy');
+    // routes/web.php
+    Route::get('/shopify/data', [ShopifyDataController::class, 'getData'])->name('shopify.data');
     
+    // Route::resource('rules', RuleController::class)->only(['index', 'create', 'store']);
 });
-Route::get('/products/bulk-action/status/{batchId}', function ($batchId) {
-    $batch = Bus::findBatch($batchId);
-    if (!$batch) {
-        return response()->json(['error' => 'Batch not found']);
-    }
-
-    logger("🔎 Batch progress: " . $batch->progress());
-
-    return response()->json([
-        'finished' => $batch->finished(),
-        'progress' => $batch->progress(),
-        'failed'   => $batch->hasFailures(),
-    ]);
-});
+Route::get('/bulk/status/{batchId}', [BulkActionController::class, 'status'])
+    ->name('bulk.status');

@@ -1,0 +1,136 @@
+{
+    "rules": {
+        "current_page": 1,
+        "data": [
+            {
+                "id": 5,
+                "name": "8USD",
+                "based_on": "current_price",
+                "discount_value": "8.00",
+                "discount_type": "percent",
+                "applies_to": "tags",
+                "applies_to_value": [
+                    "women"
+                ],
+                "status": "active",
+                "start_at": "2025-10-13T10:06:00.000000Z",
+                "end_at": null,
+                "shop_id": 1,
+                "add_tag": "8USD",
+                "created_at": "2025-10-13T03:07:00.000000Z",
+                "updated_at": "2025-10-15T10:29:47.000000Z"
+            },
+            {
+                "id": 4,
+                "name": "7USD",
+                "based_on": "compare_at_price",
+                "discount_value": "7.00",
+                "discount_type": "percent",
+                "applies_to": "products",
+                "applies_to_value": [
+                    "gid://shopify/Product/9121223016662",
+                    "gid://shopify/Product/9121222885590",
+                    "gid://shopify/Product/9121222394070"
+                ],
+                "status": "active",
+                "start_at": "2025-10-13T09:27:00.000000Z",
+                "end_at": null,
+                "shop_id": 1,
+                "add_tag": "7USD",
+                "created_at": "2025-10-13T02:28:27.000000Z",
+                "updated_at": "2025-10-15T10:32:25.000000Z"
+            },
+            {
+                "id": 3,
+                "name": "5USD",
+                "based_on": "current_price",
+                "discount_value": "5.00",
+                "discount_type": "fixed",
+                "applies_to": "products",
+                "applies_to_value": [
+                    "gid://shopify/Product/9121222525142",
+                    "gid://shopify/Product/9121223082198",
+                    "gid://shopify/Product/9121222918358"
+                ],
+                "status": "active",
+                "start_at": "2025-10-13T09:26:00.000000Z",
+                "end_at": null,
+                "shop_id": 1,
+                "add_tag": "5USD",
+                "created_at": "2025-10-13T02:26:32.000000Z",
+                "updated_at": "2025-10-13T02:26:32.000000Z"
+            },
+            {
+                "id": 2,
+                "name": "10USD",
+                "based_on": "compare_at_price",
+                "discount_value": "10.00",
+                "discount_type": "fixed",
+                "applies_to": "products",
+                "applies_to_value": [
+                    "gid://shopify/Product/9121219870934",
+                    "gid://shopify/Product/9121219903702",
+                    "gid://shopify/Product/9121219936470"
+                ],
+                "status": "active",
+                "start_at": "2025-10-13T09:21:00.000000Z",
+                "end_at": null,
+                "shop_id": 1,
+                "add_tag": "10USD",
+                "created_at": "2025-10-13T02:21:30.000000Z",
+                "updated_at": "2025-10-13T02:21:30.000000Z"
+            },
+            {
+                "id": 1,
+                "name": "Discount10%",
+                "based_on": "current_price",
+                "discount_value": "10.00",
+                "discount_type": "percent",
+                "applies_to": "products",
+                "applies_to_value": [
+                    "gid://shopify/Product/9121219707094",
+                    "gid://shopify/Product/9121219739862",
+                    "gid://shopify/Product/9121219772630",
+                    "gid://shopify/Product/9121219838166"
+                ],
+                "status": "active",
+                "start_at": "2025-10-13T09:19:00.000000Z",
+                "end_at": null,
+                "shop_id": 1,
+                "add_tag": "Discount10%",
+                "created_at": "2025-10-13T02:19:26.000000Z",
+                "updated_at": "2025-10-13T02:19:26.000000Z"
+            }
+        ],
+        "first_page_url": "http://de24e866f5cb.ngrok-free.app/rules?exclude_status=archived&page=1",
+        "from": 1,
+        "last_page": 1,
+        "last_page_url": "http://de24e866f5cb.ngrok-free.app/rules?exclude_status=archived&page=1",
+        "links": [
+            {
+                "url": null,
+                "label": "&laquo; Previous",
+                "page": null,
+                "active": false
+            },
+            {
+                "url": "http://de24e866f5cb.ngrok-free.app/rules?exclude_status=archived&page=1",
+                "label": "1",
+                "page": 1,
+                "active": true
+            },
+            {
+                "url": null,
+                "label": "Next &raquo;",
+                "page": null,
+                "active": false
+            }
+        ],
+        "next_page_url": null,
+        "path": "http://de24e866f5cb.ngrok-free.app/rules",
+        "per_page": 5,
+        "prev_page_url": null,
+        "to": 5,
+        "total": 5
+    }
+}
