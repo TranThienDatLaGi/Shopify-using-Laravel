@@ -285,7 +285,7 @@
                 if (status === "active" || status === "inactive") {
                     // console.log('hehehehehhe');
                     const batchId = data.batch_id || null;
-                    if (batchId) await waitForBatchToFinish(batchId);
+                    // if (batchId) await waitForBatchToFinish(batchId);
 
                 //     const statusCell = row.querySelector("td:nth-child(4)");
                 //     const actionCell = row.querySelector("td:nth-child(5)");

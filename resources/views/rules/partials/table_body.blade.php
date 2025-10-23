@@ -15,17 +15,16 @@
         </td>
         <td>
             @php
-    $now = now('Asia/Ho_Chi_Minh');
-    $start = \Carbon\Carbon::parse($rule->start_time)->setTimezone('Asia/Ho_Chi_Minh');
-    $end = \Carbon\Carbon::parse($rule->end_time)->setTimezone('Asia/Ho_Chi_Minh');
+                $now = now('Asia/Ho_Chi_Minh');
+                $start = \Carbon\Carbon::parse($rule->start_at)->setTimezone('Asia/Ho_Chi_Minh');
+                $end = \Carbon\Carbon::parse($rule->end_at)->setTimezone('Asia/Ho_Chi_Minh');
             @endphp
 
-            @if ($rule->status === 'stopped')
+            @if ($rule->status === 'pending')
                 <span class="badge bg-warning text-dark">
-                    Stopped at
-                    {{ \Carbon\Carbon::parse($rule->updated_at)->setTimezone('Asia/Ho_Chi_Minh')->format('H:i d/m/Y') }}
+                    
                 </span>
-            @elseif ($rule->status === 'inactive')
+            @if ($rule->status === 'inactive')
                 <span class="badge bg-secondary">Inactive</span>
             @else
                 @if ($now->between($start, $end))

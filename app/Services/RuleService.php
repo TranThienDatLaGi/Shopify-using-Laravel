@@ -642,6 +642,10 @@ class RuleService
                         $rule->id
                     );
                 }
+                // Schedule reset khi đến end_at
+                foreach ($products as $p) {
+                    $jobs[] = (new ResetProductPrice($shop->id, $p, $rule->id))->delay($rule->end_at);
+                }
             } elseif (now()->lessThan($rule->start_at)) {
                 // Nếu chưa đến thời gian bắt đầu → schedule ApplyRuleToProduct
                 foreach ($products as $p) {
@@ -655,7 +659,6 @@ class RuleService
                     ))->delay($rule->start_at);
                 }
             }
-
             // Schedule reset khi đến end_at
             foreach ($products as $p) {
                 $jobs[] = (new ResetProductPrice($shop->id, $p, $rule->id))->delay($rule->end_at);
@@ -678,7 +681,6 @@ class RuleService
         if (empty($jobs)) {
             return null;
         }
-
         // 🟩 Tạo batch và dispatch toàn bộ job một lượt
         $batch = Bus::batch($jobs)
             ->name("ApplyRule #{$rule->id}")
