@@ -198,7 +198,6 @@
             });
         }
         let switchRuleId = null;
-        let switchRow = null;
         const switchModal = new bootstrap.Modal(document.getElementById("confirmSwitchModal"));
         const confirmSwitchBtn = document.getElementById("confirmSwitchBtn");
         // Hàm mở modal xác nhận
@@ -235,102 +234,150 @@
                 confirmBtn.className = 'btn btn-danger';
                 confirmBtn.innerHTML = '🗃️ Archive';
             }
-            // Gắn lại status để xử lý khi nhấn xác nhận
             confirmBtn.setAttribute('data-status', status);
-            // Hiển thị modal
             switchModal.show();
         };
-        function confirmSwitch(id, status) {
-            switchRuleId = id;
-            switchRow = document.querySelector(`tr[data-rule-id="${id}"]`);
-            confirmSwitchBtn.setAttribute("data-status", status);
-            switchModal.show();
+        async function updateStatusRule(ruleId, status, token) {
+            const response = await fetch(`/rules/${ruleId}/status?shop=${encodeURIComponent(SHOP)}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                    "X-CSRF-TOKEN": "{{ csrf_token() }}",
+                },
+                body: JSON.stringify({ status, shop: SHOP }),
+            });
+            return await response.json();
         }
+
+        function updateUIStatus(row, html) {
+            const statusCell = row.querySelector("td:nth-child(4)");
+            if (statusCell) statusCell.innerHTML = html;
+            const actionBtn = row.querySelector("td:nth-child(5) button");
+            if (actionBtn) actionBtn.disabled = true;
+        }
+
+        function delay(ms) {
+            return new Promise(r => setTimeout(r, ms));
+        }
+
         confirmSwitchBtn.addEventListener("click", async () => {
             if (!switchRuleId) return;
-            const row = switchRow;
             const status = confirmSwitchBtn.getAttribute("data-status");
             const token = await window.AppBridgeUtils.getSessionToken(window.app);
+
             try {
                 document.activeElement?.blur();
                 switchModal.hide();
 
-                const response = await fetch(`/rules/${switchRuleId}/status?shop=${encodeURIComponent(SHOP)}`, {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Accept": "application/json",
-                        "Authorization": `Bearer ${token}`,
-                        "X-CSRF-TOKEN": "{{ csrf_token() }}",
-                    },
-                    body: JSON.stringify({ status: status, shop: SHOP }),
+                // Lấy rule hiện tại
+                const res = await fetch(`/rules/${switchRuleId}?shop=${encodeURIComponent(SHOP)}`, {
+                    headers: { "Accept": "application/json", "Authorization": `Bearer ${token}` },
                 });
-                const data = await response.json();
-                if (!response.ok) {
-                    showToast(data.error || `Failed to switch rule to ${status}!`, true);
-                    return;
-                }
-                // console.log('row: ', row);
-                // if (!row) {
-                //     showToast("Row not found in DOM ❌", true);
-                //     return;
-                // }
-                // Nếu là archived → xóa luôn dòng
+                const data = await res.json();
+                const rule = data.rule;
+                const row = document.querySelector(`tr[data-rule-id="${switchRuleId}"]`);
+
+                const startTime = new Date(rule.start_at);
+                const endTime = new Date(rule.end_at);
+                const now = new Date();
+                console.log("data", data);
+                // console.log("status", status);
+                // console.log("startTime", startTime);
+                // console.log("endTime", endTime);
+
+                // --- ARCHIVE ---
                 if (status === "archived") {
-                    // row.remove();
                     showToast("Rule has been archived and removed from the list ✅");
-                    applyFilter()
+                    row.remove();
                     return;
                 }
-                if (status === "active" || status === "inactive") {
-                    // console.log('hehehehehhe');
-                    const batchId = data.batch_id || null;
-                    // if (batchId) await waitForBatchToFinish(batchId);
 
-                //     const statusCell = row.querySelector("td:nth-child(4)");
-                //     const actionCell = row.querySelector("td:nth-child(5)");
-                //     const buttonsCell = row.querySelector("td:nth-child(6)");
-
-                //     if (statusCell) {
-                //         statusCell.innerHTML =
-                //             status === "active"
-                //                 ? `<span class="badge bg-success">Active</span>`
-                //                 : `<span class="badge bg-secondary">Inactive</span>`;
-                //     }
-
-                //     if (actionCell) {
-                //         actionCell.innerHTML =
-                //             status === "inactive"
-                //                 ? `<button class="btn btn-sm btn-success rounded-pill shadow-sm px-3"
-                //             onclick="confirmSwitch(${switchRuleId}, 'active')">
-                //             <i class="bi bi-power"></i> Turn On
-                //         </button>`
-                //                 : `<button class="btn btn-sm btn-danger rounded-pill shadow-sm px-3"
-                //             onclick="confirmSwitch(${switchRuleId}, 'inactive')">
-                //             <i class="bi bi-power"></i> Turn Off
-                //         </button>`;
-                //     }
-
-                //     if (buttonsCell) {
-                //         let html = `
-                //     <button class="btn btn-sm btn-light border" onclick="duplicateRule(${switchRuleId})">📄</button>
-                //     <button class="btn btn-sm btn-light border" onclick="editRule(${switchRuleId})">✏️</button>
-                // `;
-                //         if (status === "inactive") {
-                //             html += `<button class="btn btn-sm btn-light border" onclick="confirmSwitch(${switchRuleId}, 'archived')">🗃️</button>`;
-                //         }
-                //         buttonsCell.innerHTML = html;
-                //     }
+                // --- KHÔNG CÓ START/END TIME ---
+                if (!rule.start_at || !rule.start_at) {
+                    console.log("VD 0");
+                    const resp = await updateStatusRule(switchRuleId, status, token);
+                    if (resp.batch_id)
+                        await waitForBatchToFinish(rule, resp.batch_id, resp.product_quantity, status);
                     showToast(`Rule has been switched to ${status.toUpperCase()} ✅`);
-                        applyFilter();
-
+                    applyFilter();
+                    return;
                 }
-                switchRuleId = null;
-                switchRow = null;
 
+                // --- Case 1 + 2: ST <= now <= ET ---
+                if (startTime <= now && now <= endTime) {
+                    console.log("1+2");
+                    const label =
+                        status === "active"
+                            ? `<span class="badge bg-info text-dark">Pending activation</span>`
+                            : `<span class="badge bg-info text-dark">Pending deactivation</span>`;
+                    updateUIStatus(row, label);
+                    const resp = await updateStatusRule(switchRuleId, status, token);
+                    if (resp.batch_id)
+                        await waitForBatchToFinish(rule, resp.batch_id, resp.product_quantity, status);
+                    showToast(`Rule has been switched to ${status.toUpperCase()} ✅`);
+                    await delay(1000);
+                    applyFilter();
+                    return;
+                }
+                // --- Case 3: ST > now ---
+                else if (startTime > now) {
+                    updateUIStatus(
+                        row,
+                        `<span class="badge bg-warning text-dark">Start at ${startTime.toLocaleTimeString()}</span>`
+                    );
+                    console.log("Case 3");
+                    const msUntilStart = startTime.getTime() - Date.now();
+                    const waitTime = Math.max(msUntilStart - 10000, 0);
+                    showToast(`⏰ Rule scheduled to start at ${startTime.toLocaleTimeString()}`);
+                    console.log(`⏳ Waiting ${Math.round(waitTime / 1000)}s before polling batch...`);
+                    const resp = await updateStatusRule(switchRuleId, status, token);
+                    if (resp.batch_id) {
+                        await delay(waitTime);
+                        await waitForBatchToFinish(rule, resp.batch_id, resp.product_quantity, status);
+                    }
+                    await delay(1000);
+                    applyFilter();
+                    return;
+                }
+
+                // --- Case 4: ET < now ---
+                else if (endTime < now && status === "active") {
+                    console.log("Case 4");
+                    updateUIStatus(
+                        row,
+                        `<span class="badge bg-info text-dark">Stop at ${endTime.toLocaleTimeString()}</span>`
+                    );
+                    await delay(1000);
+                    const resp = await updateStatusRule(switchRuleId, status, token);
+                    if (resp.batch_id){
+                        await waitForBatchToFinish(rule, resp.batch_id, resp.product_quantity, status);
+                        showToast(`Rule has been switched to INACTIVE ✅`);
+                    }
+                    await delay(1000);
+                    applyFilter();
+                    return;
+                }
+                // --- Case 5: ET < now status === "inactive"---
+                else if (endTime < now && status === "inactive") {
+                    console.log("Case 5");
+                    updateUIStatus(
+                        row,
+                        `<span class="badge bg-info text-dark">Pending deactivation</span>`
+                    );
+                    const resp = await updateStatusRule(switchRuleId, status, token);
+                    showToast(`Rule has been switched to INACTIVE ✅`);
+                    await delay(1000);
+                    applyFilter();
+                    return;
+                }
             } catch (err) {
                 console.error(err);
                 showToast("An error occurred while updating the rule status ❌", true);
+                applyFilter();
+            } finally {
+                switchRuleId = null;
             }
         });
         // --- Hàm chuyển sang trang edit rule
@@ -389,33 +436,79 @@
             }
         };
         // --- Hàm chờ batch hoàn tất ---
-        async function waitForBatchToFinish(batchId) {
+        async function waitForBatchToFinish(rule, batchId, productQuantity, status) {
+            // console.log("Rule: ", rule);
+            // console.log("status: ", status);
+            const startTime = rule.start_at ? new Date(rule.start_at) : null;
+            const endTime = rule.end_at ? new Date(rule.end_at) : null;
             const maxAttempts = 60; // tối đa 60s
             let attempts = 0;
+
             showToast("⏳ Processing... Please wait");
+
             while (attempts < maxAttempts) {
                 const res = await fetch(`/bulk/status/${batchId}`, {
-                    headers: { "Accept": "application/json" }
+                    headers: { "Accept": "application/json" },
                 });
                 const data = await res.json();
-                // console.log("Batch status:", data);
-                if (data.finished) {
-                    showToast("✅ Create rule successfully! Go back to My Rules");
+                console.log("Batch status:", data);
+
+                const currentProgress = data.progress ?? 0;
+                const finished = data.finished;
+                const failed = data.failed;
+                const actionText = status === "active" ? "Activating" : "Deactivating";
+
+                const row = document.querySelector(`tr[data-rule-id="${rule.id}"]`);
+                const now = new Date(); // 🔁 Cập nhật mỗi vòng
+
+                // ⏳ Cập nhật UI tạm thời khi batch đang chạy
+                if (!finished) {
+                    if (row) {
+                        const statusCell = row.querySelector("td:nth-child(4)");
+                        if (statusCell) {
+                            statusCell.innerHTML = `
+                        <span class="badge bg-info text-dark">
+                            ${actionText}: ${currentProgress}% — ${productQuantity} products updated
+                        </span>`;
+                        }
+
+                        const actionBtn = row.querySelector("td:nth-child(5) button");
+                        if (actionBtn) actionBtn.disabled = true;
+                    }
+                }
+
+                // ✅ Nếu batch hoàn thành hoàn toàn
+                if (finished) {
+                    if (row) {
+                        const statusCell = row.querySelector("td:nth-child(4)");
+                        if (statusCell) {
+                            statusCell.innerHTML = `
+                        <span class="badge bg-info text-dark">
+                            100% (${productQuantity}) products ${actionText}
+                        </span>`;
+                        }
+                    }
+                    await delay(1000);
+                    showToast(`✅ Rule has been successfully switched to ${status.toUpperCase()}!`);
                     return;
                 }
-                if (data.failed) {
+
+                // ❌ Nếu batch thất bại
+                if (failed) {
                     showToast("❌ Batch failed!", true);
                     throw new Error("Batch failed");
                 }
-                await new Promise(r => setTimeout(r, 1000)); // đợi 1s rồi kiểm tra lại
+
+                await new Promise(r => setTimeout(r, 1000)); // đợi 1 giây
                 attempts++;
             }
+
             throw new Error("Batch check timeout");
         }
     });
 </script>
 
-<!-- Modal Xác nhận Xóa -->
+<!-- Modal Xác nhận -->
 <div class="modal" id="confirmSwitchModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg">

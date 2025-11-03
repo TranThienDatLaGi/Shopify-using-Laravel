@@ -52,7 +52,6 @@ class RuleService
                 ->byVariant($variantNode['id'])
                 ->first();
             // Chuyển đổi base on
-            // Log::info('Backup variant', ['data' => $backupVariant]);
             $basedOn = match ($basedOn) {
                 'current_price'    => 'price',
                 'compare_at_price' => 'compareAtPrice',
@@ -88,7 +87,7 @@ class RuleService
                         ($basedOn === 'compareAtPrice' && $backupVariant->original_compare_at_price == $oldPrice)
                     )
                 ) {
-                    $backupVariant->update(['rule_id'=>$ruleID]);
+                    $backupVariant->update(['rule_id' => $ruleID]);
                     $canApplyRule = true;
                 }
             }
@@ -119,7 +118,7 @@ class RuleService
                         $input['compareAtPrice'] = (string) round($compareAtPrice, 2);
                     }
                 }
-                Log::info('Variant input', $input);
+                // Log::info('Variant input', $input);
                 $variantInputs[] = $input;
             }
         }
@@ -188,17 +187,12 @@ class RuleService
             if (!$variantNode || empty($variantNode['id'])) {
                 continue;
             }
-        Log::info('shopDomain: ', ['shopDomain' => $shopDomain]);
-        Log::info('productId: ', ['productId' => $productId]);
-        Log::info('variantID: ', ['variantID' => $variantNode['id']]);
-        Log::info('ruleID: ', ['ruleID' => $ruleID]);
 
             $backupVariant = ProductPriceBackup::byShop($shopDomain)
                 ->byProduct($productId)
                 ->byVariant($variantNode['id'])
                 ->byRule($ruleID)
                 ->first();
-            Log::info('backupVariant: ', ['data'=> $backupVariant]);
             if ($backupVariant) {
                 $input = ['id' => $variantNode['id']];
                 $input['price'] = $backupVariant->original_price !== null
@@ -207,11 +201,10 @@ class RuleService
 
                 $input['compareAtPrice'] = $backupVariant->original_compare_at_price !== null
                     ? (string) round($backupVariant->original_compare_at_price, 2)
-                    : ($variantNode['compareAtPrice'] ?? null);
+                    : null;
 
                 $variantInputs[] = $input;
 
-                // Sửa lại chỗ này ✅
                 $backupVariant->update(['rule_id' => null]);
             }
         }
@@ -259,7 +252,7 @@ class RuleService
                 'data'    => data_get($response, 'productVariantsBulkUpdate', []),
                 'error'   => $errors,
             ];
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             return [
                 'success' => false,
                 'message' => 'Failed to reset product prices',
@@ -467,6 +460,7 @@ class RuleService
             Log::error('Shop not found when updating rule', ['data' => $data]);
             throw new Exception('Shop not found or not authenticated');
         }
+
         $rule = Rule::findOrFail($id);
         $old = $rule->replicate();
 
@@ -476,35 +470,41 @@ class RuleService
         $shop = $this->shopifyService->getShopByDomain($shopDomain);
         $rule->update(array_merge($data, ['shop_id' => $shop->id]));
 
-        $oldProducts = $this->getProductsByRule($shopDomain, $accessToken, $old->applies_to, $old->applies_to_value);
-        $oldProducts = $oldProducts['products'] ?? [];
-
-        $newProductsResp = $this->getProductsByRule($shopDomain, $accessToken, $rule->applies_to, $rule->applies_to_value);
-        $newProducts = $newProductsResp['products'] ?? [];
-
+        $oldProducts = $this->getProductsByRule($shopDomain, $accessToken, $old->applies_to, $old->applies_to_value)['products'] ?? [];
+        $newProducts = $this->getProductsByRule($shopDomain, $accessToken, $rule->applies_to, $rule->applies_to_value);
+        $productQuantity = $newProducts['count'] ?? 0;
+        $newProducts = $newProducts['products'] ?? [];
+        Log::info('newProduct: ', ['newProducts' => $newProducts]);
         $jobs = [];
-        // ✅ Gỡ tag cũ nếu có
-        if (!empty($oldTag)) {
-            foreach ($oldProducts as $p) {
-                $jobs[] = new BulkProductActionJob($shopDomain, $accessToken, 'remove_tags', [$p], [
-                    'tags' => [$oldTag]
-                ]);
+        if($oldTag!= $newTag){
+            // ✅ Gỡ tag cũ
+            if (!empty($oldTag)) {
+                foreach ($oldProducts as $p) {
+                    $jobs[] = new BulkProductActionJob($shopDomain, $accessToken, 'remove_tags', [$p], [
+                        'tags' => [$oldTag]
+                    ]);
+                }
+            }
+
+            // ✅ Thêm tag mới
+            if (!empty($newTag)) {
+                foreach ($newProducts as $p) {
+                    $jobs[] = new BulkProductActionJob($shopDomain, $accessToken, 'add_tags', [$p], [
+                        'tags' => [$newTag]
+                    ]);
+                }
+            } else {
+                Log::warning('⚠️ No new tag provided when updating rule', ['rule_id' => $rule->id]);
             }
         }
 
-        // ✅ Thêm tag mới nếu có
-        if (!empty($newTag)) {
-            foreach ($newProducts as $p) {
-                $jobs[] = new BulkProductActionJob($shopDomain, $accessToken, 'add_tags', [$p], [
-                    'tags' => [$newTag]
-                ]);
-            }
-        } else {
-            Log::warning('⚠️ No new tag provided when updating rule', ['rule_id' => $rule->id]);
+        // ✅ Cuối cùng: apply hoặc schedule lại rule
+        $applyJobs = $this->applyOrScheduleRule($rule, $shopDomain, $newProducts);
+        if (is_array($applyJobs)) {
+            $jobs = array_merge($jobs, $applyJobs);
         }
 
-        // ✅ Áp dụng hoặc cập nhật rule
-        $applyBatch = $this->applyOrScheduleRule($rule, $shopDomain, $newProducts);
+        // ✅ Gom tất cả vào 1 batch duy nhất
         $batch = Bus::batch($jobs)
             ->name("UpdateRule #{$rule->id}")
             ->then(function () use ($rule) {
@@ -514,10 +514,16 @@ class RuleService
                 Log::error("❌ Failed updating rule #{$rule->id}: " . $e->getMessage());
             })
             ->dispatch();
-        Log::info('✅ Batch dispatched successfully', ['rule' => $rule, 'batch_id' => $batch->id]);
+
+        Log::info('✅ Batch dispatched successfully', [
+            'rule_id' => $rule->id,
+            'batch_id' => $batch->id
+        ]);
+
         return [
             'rule' => $rule,
             'batch_id' => $batch->id,
+            'product_quantity' => $productQuantity,
         ];
     }
     public function updateStatusRule(string $id, string $status, $shopDomain, $accessToken)
@@ -534,8 +540,10 @@ class RuleService
         ]);
         $productsResp = $this->getProductsByRule($shopDomain, $accessToken, $rule->applies_to, $rule->applies_to_value);
         $products = $productsResp['products'] ?? [];
+        Log::info('products:',['products: '=>$products]);
+        $productQuantity = $productsResp['count'] ?? 0;
         if (!is_array($products)) $products = [];
-        $addTag = $data['add_tag'] ?? null;
+        $addTag = $rule->add_tag?? null;
         $jobs = [];
         if ($status === 'inactive') {
             foreach ($products as $p) {
@@ -553,11 +561,13 @@ class RuleService
             return [
                 'rule' => $rule,
                 'batch_id' => $batch->id,
+                'product_quantity' => $productQuantity,
             ];
         }
         if ($status === 'archived') {
             return [
                 'rule' => $rule,
+                'product_quantity' => $productQuantity,
             ];
         }
         if (!empty($addTag)) {
@@ -569,22 +579,90 @@ class RuleService
         } else {
             Log::warning('⚠️ No new tag provided when updating rule', ['rule_id' => $rule->id]);
         }
-        $applyBatch = $this->applyOrScheduleRule($rule, $shopDomain, $products);
+        $applyJobs = $this->applyOrScheduleRule($rule, $shopDomain, $products);
+        $jobs = array_merge($jobs, $applyJobs ?? []); // merge an toàn
+
         $batch = Bus::batch($jobs)
             ->name("Update status for Rule #{$rule->id}")
             ->then(function () use ($rule) {
+                $rule->update(['status' => 'active']); // Cập nhật sau khi batch xong
                 Log::info("✅ Rule #{$rule->id} updated successfully.");
             })
             ->catch(function ($e) use ($rule) {
                 Log::error("❌ Failed updating rule #{$rule->id}: " . $e->getMessage());
+                $rule->update(['status' => 'failed']);
+            })
+            ->finally(function () use ($rule) {
+                if ($rule->end_at && now()->greaterThanOrEqualTo($rule->end_at)) {
+                    $rule->update(['status' => 'expired']);
+                }
             })
             ->dispatch();
         Log::info('✅ Batch dispatched successfully', ['rule' => $rule, 'batch_id' => $batch->id]);
         return [
             'rule' => $rule,
             'batch_id' => $batch->id,
+            'product_quantity' => $productQuantity,
         ];
     }
+    protected function applyOrScheduleRule($rule, $shopDomain, $products)
+    {
+        $jobs = [];
+        $shop = $this->shopifyService->getShopByDomain($shopDomain);
+
+        // Nếu có cả start_at và end_at
+        if ($rule->start_at && $rule->end_at) {
+
+            // Trường hợp 1️⃣: Rule đã hết hạn (end_at < now)
+            if (now()->greaterThan($rule->end_at)) {
+                Log::info("Rule #{$rule->id} đã hết hạn, reset giá cho sản phẩm.");
+                foreach ($products as $p) {
+                    $jobs[] = new ResetProductPrice($shop->id, $p, $rule->id);
+                }
+            }
+
+            // Trường hợp 2️⃣: Rule đang trong thời gian hiệu lực
+            elseif (now()->between($rule->start_at, $rule->end_at)) {
+                Log::info("Rule #{$rule->id} đang trong thời gian hiệu lực, áp dụng giảm giá.");
+                foreach ($products as $p) {
+                    $jobs[] = new ApplyRuleToProduct(
+                        $shop->id,
+                        $p,
+                        $rule->discount_value,
+                        $rule->discount_type,
+                        $rule->based_on,
+                        $rule->id
+                    );
+                }
+            }
+            // Trường hợp 3️⃣: Rule chưa đến thời gian bắt đầu
+            else {
+                Log::info("Rule #{$rule->id} chưa tới giờ start ({$rule->start_at}), Scheduler sẽ xử lý sau.");
+                // Không tạo job ở đây — Scheduler sẽ tự động chạy khi đến giờ
+            }
+        }
+        // Nếu chỉ có start_at mà chưa tới giờ
+        elseif ($rule->start_at && now()->lessThan($rule->start_at)) {
+            Log::info("Rule #{$rule->id} có start_at nhưng chưa tới giờ, Scheduler sẽ xử lý sau.");
+            // Không tạo job — Scheduler sẽ apply khi đến giờ start_at
+        }
+        // Nếu chỉ có start_at và hiện tại đã tới hoặc vượt qua
+        elseif ($rule->start_at && now()->greaterThanOrEqualTo($rule->start_at)) {
+            Log::info("Rule #{$rule->id} đã tới giờ start, áp dụng ngay.");
+            foreach ($products as $p) {
+                $jobs[] = new ApplyRuleToProduct(
+                    $shop->id,
+                    $p,
+                    $rule->discount_value,
+                    $rule->discount_type,
+                    $rule->based_on,
+                    $rule->id
+                );
+            }
+        }
+        return $jobs;
+    }
+
     public function deleteRule(string $id, $shopDomain, $accessToken)
     {
         try {
@@ -623,81 +701,5 @@ class RuleService
             Log::error("❌ Delete rule failed: " . $e->getMessage());
             return null;
         }
-    }
-    protected function applyOrScheduleRule($rule, $shopDomain, $products)
-    {
-        $jobs = [];
-        $shop = $this->shopifyService->getShopByDomain($shopDomain);
-        // Nếu rule có thời gian bắt đầu và kết thúc
-        if ($rule->start_at && $rule->end_at) {
-            if (now()->between($rule->start_at, $rule->end_at)) {
-                // Thực thi ngay nếu đang trong khoảng thời gian hiệu lực
-                foreach ($products as $p) {
-                    $jobs[] = new ApplyRuleToProduct(
-                        $shop->id,
-                        $p,
-                        $rule->discount_value,
-                        $rule->discount_type,
-                        $rule->based_on,
-                        $rule->id
-                    );
-                }
-                // Schedule reset khi đến end_at
-                foreach ($products as $p) {
-                    $jobs[] = (new ResetProductPrice($shop->id, $p, $rule->id))->delay($rule->end_at);
-                }
-            } elseif (now()->lessThan($rule->start_at)) {
-                // Nếu chưa đến thời gian bắt đầu → schedule ApplyRuleToProduct
-                foreach ($products as $p) {
-                    $jobs[] = (new ApplyRuleToProduct(
-                        $shop->id,
-                        $p,
-                        $rule->discount_value,
-                        $rule->discount_type,
-                        $rule->based_on,
-                        $rule->id
-                    ))->delay($rule->start_at);
-                }
-            }
-            // Schedule reset khi đến end_at
-            foreach ($products as $p) {
-                $jobs[] = (new ResetProductPrice($shop->id, $p, $rule->id))->delay($rule->end_at);
-            }
-        }
-        // Nếu không có end_at → apply rule ngay (không reset)
-        else {
-            foreach ($products as $p) {
-                $jobs[] = new ApplyRuleToProduct(
-                    $shop->id,
-                    $p,
-                    $rule->discount_value,
-                    $rule->discount_type,
-                    $rule->based_on,
-                    $rule->id
-                );
-            }
-        }
-
-        if (empty($jobs)) {
-            return null;
-        }
-        // 🟩 Tạo batch và dispatch toàn bộ job một lượt
-        $batch = Bus::batch($jobs)
-            ->name("ApplyRule #{$rule->id}")
-            ->then(function () use ($rule) {
-                $rule->update(['status' => 'active']);
-            })
-            ->catch(function ($e) use ($rule) {
-                Log::error("Batch for rule {$rule->id} failed: " . $e->getMessage());
-                $rule->update(['status' => 'failed']);
-            })
-            ->finally(function () use ($rule) {
-                if ($rule->end_at && now()->greaterThanOrEqualTo($rule->end_at)) {
-                    $rule->update(['status' => 'expired']);
-                }
-            })
-            ->dispatch();
-
-        return $batch;
     }
 }

@@ -125,7 +125,15 @@ class RuleController extends Controller
         $rule = Rule::findOrFail($id);
         return view('rules.show', compact('rule'));
     }
+    public function getRuleById(string $id)
+    {
+        $rule = Rule::findOrFail($id);
 
+        return response()->json([
+            'message' => 'Rule found successfully.',
+            'rule' => $rule,
+        ]);
+    }
     /**
      * Form edit rule
      */
@@ -172,7 +180,7 @@ class RuleController extends Controller
         $status = $request->input('status');
         $validated = $request->validated();
         try {
-            if ($status === 'inactive'|| $status === 'archived') {
+            if ($status === 'inactive' || $status === 'archived') {
                 $rule = Rule::findOrFail($id);
                 $rule->update(array_merge($validated, ['status' => $status]));
                 return response()->json([
@@ -180,14 +188,14 @@ class RuleController extends Controller
                     'rule_id' => $rule->id,
                     'status'  => $rule->status,
                 ]);
-            }
-            else if ($status === 'active') {
+            } else if ($status === 'active') {
                 $result = $this->ruleService->updateRule($id, $validated, $shopDomain, $accessToken);
                 return response()->json([
                     'message'   => 'Rule updated successfully (active).',
                     'rule_id'   => $result['rule']['id'] ?? $result['rule'] ?? $id,
                     'batch_id'  => $result['batch_id'] ?? null,
                     'status'    => 'active',
+                    'product_quantity' => $result['product_quantity'] ?? null
                 ]);
             }
             return response()->json([
@@ -214,13 +222,14 @@ class RuleController extends Controller
         $selectedShop = $this->shopifyService->getShopByDomain($shopDomain);
         $accessToken = $selectedShop->access_token ?? $selectedShop->password ?? null;
         $status = $request->input('status');
-        $result = $this->ruleService->updateStatusRule($id,$status, $shopDomain, $accessToken);
+        $result = $this->ruleService->updateStatusRule($id, $status, $shopDomain, $accessToken);
         if ($request->expectsJson()) {
             return response()->json([
                 'message'       => 'Rule status updated successfully.',
-                'rule_id'       => $result['rule']->id,
+                'rule'       => $result['rule'],
                 'batch_id'      => $result['batch_id'] ?? null,
                 'rule_status'   => $status ?? null,
+                'product_quantity' => $result['product_quantity'] ?? null
             ]);
         }
         return redirect()

@@ -77,10 +77,21 @@ class BulkActionController extends Controller
             return response()->json(['error' => 'Batch not found']);
         }
 
+        // Tính số job đã hoàn thành (bao gồm thành công và thất bại)
+        $processedJobs = $batch->processedJobs();
+        $totalJobs = $batch->totalJobs;
+
+        // Nếu muốn chỉ tính job thành công (loại trừ job fail):
+        $successfulJobs = $processedJobs - $batch->failedJobs;
+
         return response()->json([
-            'finished' => $batch->finished(),
+            'finished'       => $batch->finished(),
+            'processed_jobs' => $processedJobs,
+            'total_jobs'     => $totalJobs,
+            'successful_jobs' => $successfulJobs,
+            'failed_jobs'    => $batch->failedJobs,
+            'progress_detail'=> "{$processedJobs}/{$totalJobs}",
             'progress' => $batch->progress(),
-            'failed'   => $batch->hasFailures(),
         ]);
     }
 }

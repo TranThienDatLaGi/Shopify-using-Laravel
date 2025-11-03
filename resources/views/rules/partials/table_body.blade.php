@@ -17,38 +17,50 @@
             @php
                 $now = now('Asia/Ho_Chi_Minh');
                 $start = \Carbon\Carbon::parse($rule->start_at)->setTimezone('Asia/Ho_Chi_Minh');
-                $end = \Carbon\Carbon::parse($rule->end_at)->setTimezone('Asia/Ho_Chi_Minh');
+                $end = $rule->end_at ? \Carbon\Carbon::parse($rule->end_at)->setTimezone('Asia/Ho_Chi_Minh') : null;
             @endphp
 
-            @if ($rule->status === 'pending')
-                <span class="badge bg-warning text-dark">
-                    
-                </span>
             @if ($rule->status === 'inactive')
                 <span class="badge bg-secondary">Inactive</span>
             @else
-                @if ($now->between($start, $end))
-                    <span class="badge bg-success">
-                        Stop at {{ $end->format('H:i d/m/Y') }}
-                    </span>
-                @elseif ($now->lt($start))
-                    <span class="badge bg-warning text-dark">
-                        Activate at {{ $start->format('H:i d/m/Y') }}
-                    </span>
+                @if (!$end)
+                    {{-- Không có end_at --}}
+                    @if ($now->lt($start))
+                        <span class="badge bg-warning text-dark">
+                            Activate at {{ $start->format('H:i d/m/Y') }}
+                        </span>
+                    @else
+                        <span class="badge bg-success">
+                            Active from {{ $start->format('H:i d/m/Y') }}
+                        </span>
+                    @endif
                 @else
-                    <span class="badge bg-secondary">
-                        Expired — finished at {{ $end->format('H:i d/m/Y') }}
-                    </span>
+                    {{-- Có end_at --}}
+                    @if ($now->between($start, $end))
+                        <span class="badge bg-success">
+                            Stop at {{ $end->format('H:i d/m/Y') }}
+                        </span>
+                    @elseif ($now->lt($start))
+                        <span class="badge bg-warning text-dark">
+                            Activate at {{ $start->format('H:i d/m/Y') }}
+                        </span>
+                    @elseif ($end->lt($now))
+                        <span class="badge bg-secondary">
+                            Expired — finished at {{ $end->format('H:i d/m/Y') }}
+                        </span>
+                    @endif
                 @endif
             @endif
         </td>
         <td>
             @if ($rule->status === 'inactive')
-                <button class="btn btn-sm btn-success rounded-pill shadow-sm px-3" onclick="confirmSwitch({{ $rule->id }}, 'active')">
+                <button class="btn btn-sm btn-success rounded-pill shadow-sm px-3"
+                    onclick="confirmSwitch({{ $rule->id }}, 'active')">
                     <i class="bi bi-power"></i> Turn On
                 </button>
             @else
-                <button class="btn btn-sm btn-danger rounded-pill shadow-sm px-3" onclick="confirmSwitch({{ $rule->id }}, 'inactive')">
+                <button class="btn btn-sm btn-danger rounded-pill shadow-sm px-3"
+                    onclick="confirmSwitch({{ $rule->id }}, 'inactive')">
                     <i class="bi bi-power"></i> Turn Off
                 </button>
             @endif
@@ -58,7 +70,8 @@
                 <button class="btn btn-sm btn-light border" onclick="duplicateRule({{ $rule->id }})">📄</button>
                 <button class="btn btn-sm btn-light border" onclick="editRule({{ $rule->id }})">✏️</button>
                 @if ($rule->status === 'inactive')
-                    <button class="btn btn-sm btn-light border" onclick="confirmSwitch({{ $rule->id }},'archived')"> 🗃️ </button>
+                    <button class="btn btn-sm btn-light border" onclick="confirmSwitch({{ $rule->id }},'archived')"> 🗃️
+                    </button>
                 @endif
             </div>
         </td>

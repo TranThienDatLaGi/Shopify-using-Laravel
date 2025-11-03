@@ -31,8 +31,10 @@ RUN apt-get update && apt-get install -y supervisor
 # 🟩 Tạo thư mục cần thiết cho Supervisor
 RUN mkdir -p /var/log/supervisor /var/run
 
-# 🟩 Copy file cấu hình Supervisor (dùng 1 file chính)
+# 🟩 Copy file cấu hình Supervisor (chính và các file con)
 COPY ./docker/supervisord.conf /etc/supervisord.conf
+COPY ./docker/supervisor/*.conf /etc/supervisor/conf.d/
+
 
 # Expose cổng PHP-FPM
 EXPOSE 9000

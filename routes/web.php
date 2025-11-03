@@ -27,7 +27,8 @@ Route::middleware(['verify.shopify'])->group(function () {
     Route::put('/rules/{id}', [RuleController::class, 'update'])->name('rules.update');
     Route::put('/rules/{id}/status', [RuleController::class, 'updateStatus'])
         ->name('rules.updateStatus');
-        
+    Route::get('/rules/{id}', [RuleController::class, 'getRuleById'])
+        ->name('rules.getRuleById');
     Route::post('/rules/{id}/duplicate', [RuleController::class, 'duplicate'])
         ->name('rules.duplicate');
     Route::delete('/rules/{id}', [RuleController::class, 'destroy'])

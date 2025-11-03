@@ -533,15 +533,15 @@
                 if (!selectedRadio) return;
                 const itemType = typeMap[selectedRadio.value];
                 if (!itemType) return;
-                console.log('itemType', itemType);
-                console.log('applyToChoosen', applyToChoosen.value);
-                console.log('selectedItems before', selectedItems);
+                // console.log('itemType', itemType);
+                // console.log('applyToChoosen', applyToChoosen.value);
+                // console.log('selectedItems before', selectedItems);
 
                 if (!applyToChoosen || !applyToChoosen.value || applyToChoosen.value !== itemType) {
                     selectedItems = [];
                 }
                 window.selectedItems = selectedItems;
-                console.log('selectedItems After', selectedItems);
+                // console.log('selectedItems After', selectedItems);
 
                 if (!selectedItems) modalItemSelected.innerHTML = "";
                 if (!selectedItems) selectedBlockList.innerHTML = "";

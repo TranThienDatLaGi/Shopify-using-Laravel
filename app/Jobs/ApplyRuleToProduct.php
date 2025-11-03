@@ -43,16 +43,16 @@ class ApplyRuleToProduct implements ShouldQueue
     public function handle(RuleService $ruleService): void
     {
         $shop = User::find($this->shopId);
-        Log::info('Job ApplyRuleToProduct started', ['shopId' => $this->shopId, 'productId' => $this->productId]);
+        // Log::info('Job ApplyRuleToProduct started', ['shopId' => $this->shopId, 'productId' => $this->productId]);
         if (!$shop) {
             Log::warning("Shop ID {$this->shopId} not found, skipping ApplyRuleToProduct job.");
             return;
         }
 
-        Log::info('ApplyRuleToProduct job started', [
-            'shop' => $shop->name,
-            'productId' => $this->productId,
-        ]);
+        // Log::info('ApplyRuleToProduct job started', [
+        //     'shop' => $shop->name,
+        //     'productId' => $this->productId,
+        // ]);
         $shopDomain=$shop->name;
         $accessToken=$shop->access_token ?? $shop->password;
         $result = $ruleService->setRuleToProduct(
