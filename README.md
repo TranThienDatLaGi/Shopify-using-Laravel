@@ -122,15 +122,6 @@ Nếu bạn có sử dụng **queue hoặc job**, hãy chạy thêm container wo
 ```bash
 docker-compose exec app php artisan queue:work
 ```
-
-Chạy build frontend (nếu có):
-
-```bash
-docker-compose exec app npm run dev
-```
-
----
-
 ## ✅ Kiểm tra hoạt động
 
 Sau khi chạy thành công, truy cập **đường dẫn Ngrok** (ví dụ:  
