@@ -101,16 +101,11 @@
                 });
             }
             mainTab.addEventListener('click', () => {
-                console.log('click to main before');
                 activateTab(mainTab, archivedTab, mainContainer, archivedContainer, 'main');
-                console.log('click to main after');
 
             });
             archivedTab.addEventListener('click', () => {
-                console.log('click to archived before');
                 activateTab(archivedTab, mainTab, archivedContainer, mainContainer, 'archived');
-                console.log('click to archived after');
-
             });
         });
     </script>

@@ -1,70 +1,68 @@
-<tbody id="productTableBody">
-    @foreach ($products ?? [] as $product)
-        @php
-            $node = $product['node'];
-            $image = $node['media']['edges'][0]['node']['image']['url'] ?? 'https://via.placeholder.com/40';
+@foreach ($products ?? [] as $product)
+    @php
+        $node = $product['node'];
+        $image = $node['media']['edges'][0]['node']['image']['url'] ?? 'https://via.placeholder.com/40';
 
-            // ✅ Lấy Price & Compare At Price
-            $price = $node['variants']['edges'][0]['node']['price'] ?? null;
-            $compare = $node['variants']['edges'][0]['node']['compareAtPrice'] ?? null;
+        // ✅ Lấy Price & Compare At Price
+        $price = $node['variants']['edges'][0]['node']['price'] ?? null;
+        $compare = $node['variants']['edges'][0]['node']['compareAtPrice'] ?? null;
 
-            $tablecollections = [];
-            if (!empty($node['collections']['edges']) && is_array($node['collections']['edges'])) {
-                foreach ($node['collections']['edges'] as $cEdge) {
-                    $cNode = $cEdge['node'] ?? null;
-                    if ($cNode) {
-                        $tablecollections[] = [
-                            'title' => $cNode['title'] ?? '-',
-                            'handle' => $cNode['handle'] ?? null,
-                            'id' => $cNode['id'] ?? null,
-                        ];
-                    }
+        $tablecollections = [];
+        if (!empty($node['collections']['edges']) && is_array($node['collections']['edges'])) {
+            foreach ($node['collections']['edges'] as $cEdge) {
+                $cNode = $cEdge['node'] ?? null;
+                if ($cNode) {
+                    $tablecollections[] = [
+                        'title' => $cNode['title'] ?? '-',
+                        'handle' => $cNode['handle'] ?? null,
+                        'id' => $cNode['id'] ?? null,
+                    ];
                 }
             }
-        @endphp
-        <tr>
-            <td><input type="checkbox" class="row-check" data-product-id="{{ $node['id'] }}"></td>
-            <td>
-                <img src="{{ $image }}" alt="" width="40">
-                {{ $node['title'] }}
-            </td>
-            <td>
-                <span class="status {{ strtolower($node['status']) }}">
-                    {{ $node['status'] }}
-                </span>
-            </td>
-            <td>
-                @if($price)
-                    ${{ number_format($price, 2) }}
-                @else
-                    -
-                @endif
-            </td>
-            <td>
-                @if($compare)
-                    ${{ number_format($compare, 2) }}
-                @else
-                    -
-                @endif
-            </td>
+        }
+    @endphp
+    <tr>
+        <td><input type="checkbox" class="row-check" data-product-id="{{ $node['id'] }}"></td>
+        <td>
+            <img src="{{ $image }}" alt="" width="40">
+            {{ $node['title'] }}
+        </td>
+        <td>
+            <span class="status {{ strtolower($node['status']) }}">
+                {{ $node['status'] }}
+            </span>
+        </td>
+        <td>
+            @if($price)
+                ${{ number_format($price, 2) }}
+            @else
+                -
+            @endif
+        </td>
+        <td>
+            @if($compare)
+                ${{ number_format($compare, 2) }}
+            @else
+                -
+            @endif
+        </td>
 
-            <td>
-                {{ $node['totalInventory'] ?? 0 }} in stock
-                for {{ $node['variantsCount']['count'] ?? 0 }} variants
-            </td>
-            <td>{{ $node['vendor'] ?? '-' }}</td>
-            <td>{{ $node['productType'] ?? '-' }}</td>
-            <td>{{ !empty($node['tags']) ? implode(', ', $node['tags']) : '-' }}</td>
-            <td>
-                @if (!empty($tablecollections))
-                    @foreach ($tablecollections as $c)
-                        <span data-collection-id="{{ $c['id'] }}">{{ $c['title'] }}</span>
-                        @if (!$loop->last), @endif
-                    @endforeach
-                @else
-                    -
-                @endif
-            </td>
-        </tr>
-    @endforeach
-</tbody>
+        <td>
+            {{ $node['totalInventory'] ?? 0 }} in stock
+            for {{ $node['variantsCount']['count'] ?? 0 }} variants
+        </td>
+        <td>{{ $node['vendor'] ?? '-' }}</td>
+        <td>{{ $node['productType'] ?? '-' }}</td>
+        <td>{{ !empty($node['tags']) ? implode(', ', $node['tags']) : '-' }}</td>
+        <td>
+            @if (!empty($tablecollections))
+                @foreach ($tablecollections as $c)
+                    <span data-collection-id="{{ $c['id'] }}">{{ $c['title'] }}</span>
+                    @if (!$loop->last), @endif
+                @endforeach
+            @else
+                -
+            @endif
+        </td>
+    </tr>
+@endforeach

@@ -540,7 +540,7 @@ class RuleService
         ]);
         $productsResp = $this->getProductsByRule($shopDomain, $accessToken, $rule->applies_to, $rule->applies_to_value);
         $products = $productsResp['products'] ?? [];
-        Log::info('products:',['products: '=>$products]);
+        Log::info('status:',['status: '=> $status]);
         $productQuantity = $productsResp['count'] ?? 0;
         if (!is_array($products)) $products = [];
         $addTag = $rule->add_tag?? null;

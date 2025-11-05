@@ -41,7 +41,7 @@
         <td>
             <div class="btn-group">
                 <button class="btn btn-sm btn-light border" onclick="confirmDelete({{ $rule->id }})">🗑️</button>
-                <button class="btn btn-sm btn-light border" onclick="confirmSwitch({{ $rule->id }},'inactive')"> 🔄 </button>
+                <button class="btn btn-sm btn-light border" onclick="confirmSwitchInactive({{ $rule->id }},'inactive')"> 🔄 </button>
             </div>
         </td>
     </tr>

@@ -65,20 +65,20 @@
                 sort_order: document.querySelector('input[name="sortOrder"]:checked')?.value || "",
             };
             const fetchUrlArchived = new URL(url, window.location.origin);
-            fetchUrlArchived.searchParams.set('tab', tabName);
+            fetchUrlArchived.searchParams.set('tab', 'archived');
             Object.keys(filtersArchived).forEach(key => {
-                if (filters[key]) fetchUrlArchived.searchParams.set(key, filters[key]);
+                if (filtersArchived[key]) fetchUrlArchived.searchParams.set(key, filtersArchived[key]);
             })
             const token = await window.AppBridgeUtils.getSessionToken(window.app);;
             try {
-                const responseArchived = await fetch(fetchUrlArchived, {
+                const response = await fetch(fetchUrlArchived, {
                     method: "GET",
                     headers: {
                         "Accept": "application/json",
                         "Authorization": `Bearer ${token}`,
                     },
                 });
-                if (!responseArchived.ok) throw new Error(`Error ${responseArchived.status}`);
+                if (!response.ok) throw new Error(`Error ${response.status}`);
 
                 const dataArchived = await response.json();
                 ruleArchivedTableBody.innerHTML = dataArchived.tbody;
@@ -94,6 +94,19 @@
                 ruleArchivedTableBody.innerHTML = `<tr><td colspan="10" class="text-danger text-center">Failed to load data</td></tr>`;
             }
         }
+        async function updateStatusRule(ruleId, status, token) {
+            const response = await fetch(`/rules/${ruleId}/status?shop=${encodeURIComponent(SHOP)}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json",
+                    "Authorization": `Bearer ${token}`,
+                    "X-CSRF-TOKEN": "{{ csrf_token() }}",
+                },
+                body: JSON.stringify({ status, shop: SHOP }),
+            });
+            return await response.json();
+        }
         searchBtnArchived.addEventListener("click", () => applyFilterArchived());
         document.addEventListener("change", function (e) {
             if (e.target.name === "sortFieldArchived" || e.target.name === "sortOrderArchived") {
@@ -105,11 +118,12 @@
                 link.addEventListener("click", async (e) => {
                     e.preventDefault();
                     const url = e.target.closest("a").href;
-                    await applyFilter(url);
+                    await applyFilterArchived(url);
                 });
             });
         }
         let deleteRuleId = null;
+        let switchRuleId = null;
         const deleteModal = new bootstrap.Modal(document.getElementById("confirmDeleteModal"));
         const confirmDeleteBtn = document.getElementById("confirmDeleteBtn");
         // Hàm mở modal xác nhận
@@ -117,39 +131,73 @@
             deleteRuleId = id;
             deleteModal.show();
         };
+        window.confirmSwitchInactive = function (id, status) {
+            switchRuleId = id;
+            const modalTitle = document.querySelector('#confirmDeleteModal .modal-title');
+            const modalBody = document.querySelector('#confirmDeleteModal .modal-body p');
+            modalTitle.textContent = 'CONFIRM SWITCH TO INACTIVE';
+            modalBody.innerHTML = `
+                Are you sure you want to <strong>deactivate</strong> this rule?<br>
+                This action <span class="text-danger fw-bold">cannot be undone</span>.
+            `;
+            confirmDeleteBtn.className = 'btn btn-warning';
+            confirmDeleteBtn.innerHTML = '🔄 Switch';
+            confirmDeleteBtn.setAttribute('data-status', status);
+            deleteModal.show();
+        };
         confirmDeleteBtn.addEventListener("click", async () => {
-            if (!deleteRuleId) return;
+            // if (!deleteRuleId) return;
+            const status = confirmDeleteBtn.getAttribute("data-status");
             const token = await window.AppBridgeUtils.getSessionToken(window.app);
-            try {
-                const response = await fetch(`/rules/${deleteRuleId}?shop=${encodeURIComponent(SHOP)}`, {
-                    method: "DELETE",
-                    headers: {
-                        "Accept": "application/json",
-                        "Authorization": `Bearer ${token}`,
-                        "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute("content"),
-                    },
-                });
+            console.log("status", status);
+            console.log("switchRuleId", switchRuleId);
+            
+            if(!status){
+                try {
+                    const response = await fetch(`/rules/${deleteRuleId}?shop=${encodeURIComponent(SHOP)}`, {
+                        method: "DELETE",
+                        headers: {
+                            "Accept": "application/json",
+                            "Authorization": `Bearer ${token}`,
+                            "X-CSRF-TOKEN": document.querySelector('meta[name="csrf-token"]').getAttribute("content"),
+                        },
+                    });
 
-                const data = await response.json();
-                if (!response.ok) {
-                    showToast(data.error || "Xóa thất bại!", true);
-                    return;
+                    const data = await response.json();
+                    if (!response.ok) {
+                        showToast(data.error || "Xóa thất bại!", true);
+                        return;
+                    }
+                    const row = document.querySelector(`button[onclick="confirmDelete(${deleteRuleId})"]`)?.closest("tr");
+                    if (row) row.remove();
+                    showToast("Rule đã được xóa thành công ✅");
+                } catch (err) {
+                    console.error(err);
+                    showToast("Lỗi không mong muốn khi xóa ❌", true);
+                } finally {
+                    deleteModal.hide();
+                    deleteRuleId = null;
                 }
-                const row = document.querySelector(`button[onclick="confirmDelete(${deleteRuleId})"]`)?.closest("tr");
-                if (row) row.remove();
-                showToast("Rule đã được xóa thành công ✅");
-            } catch (err) {
-                console.error(err);
-                showToast("Lỗi không mong muốn khi xóa ❌", true);
-            } finally {
-                deleteModal.hide();
-                deleteRuleId = null;
+            }else{
+                try {
+                    deleteModal.hide();
+                    const resp = await updateStatusRule(switchRuleId, status, token);
+                    applyFilterArchived();
+                } catch (err) {
+                    console.error(err);
+                    showToast("An error occurred while updating the rule status ❌", true);
+                    applyFilterArchived();
+                } finally {
+                    switchRuleId = null;
+                }
             }
+            
         });
+        
     });
 </script>
 <!-- Modal Xác nhận Xóa -->
-<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+<div class="modal " id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg">
             <div class="modal-header bg-danger text-white">
@@ -158,7 +206,7 @@
                     aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p class="mb-0">Are you sure you want to delete this<strong>rule</strong>?<br>
+                <p class="mb-0">Are you sure you want to delete this <strong>rule</strong>?<br>
                     This action <span class="text-danger fw-bold">cannot be undone</span>
             </div>
             <div class="modal-footer">

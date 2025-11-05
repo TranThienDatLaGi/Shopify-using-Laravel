@@ -54,10 +54,13 @@ class RuleController extends Controller
             $tableView = $tab === 'archived'
                 ? 'rules.partials.archived_table_body'
                 : 'rules.partials.table_body';
+            $pagination=$tab=== 'archived'
+                ? 'rules.partials.archived_pagination'
+                : 'rules.partials.pagination';
 
             return response()->json([
                 'tbody' => view($tableView, compact('rules'))->render(),
-                'pagination' => view('rules.partials.pagination', compact('rules'))->render(),
+                'pagination' => view($pagination, compact('rules'))->render(),
                 'tab' => $tab,
             ]);
         }
@@ -222,6 +225,7 @@ class RuleController extends Controller
         $selectedShop = $this->shopifyService->getShopByDomain($shopDomain);
         $accessToken = $selectedShop->access_token ?? $selectedShop->password ?? null;
         $status = $request->input('status');
+        Log::info('status:', ['status: ' => $status]);
         $result = $this->ruleService->updateStatusRule($id, $status, $shopDomain, $accessToken);
         if ($request->expectsJson()) {
             return response()->json([

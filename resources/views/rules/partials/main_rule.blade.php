@@ -282,11 +282,9 @@
                 const startTime = new Date(rule.start_at);
                 const endTime = new Date(rule.end_at);
                 const now = new Date();
-                console.log("data", data);
+                // console.log("data", data);
                 // console.log("status", status);
-                // console.log("startTime", startTime);
-                // console.log("endTime", endTime);
-
+                const resp = await updateStatusRule(switchRuleId, status, token);
                 // --- ARCHIVE ---
                 if (status === "archived") {
                     showToast("Rule has been archived and removed from the list ✅");
@@ -297,7 +295,6 @@
                 // --- KHÔNG CÓ START/END TIME ---
                 if (!rule.start_at || !rule.start_at) {
                     console.log("VD 0");
-                    const resp = await updateStatusRule(switchRuleId, status, token);
                     if (resp.batch_id)
                         await waitForBatchToFinish(rule, resp.batch_id, resp.product_quantity, status);
                     showToast(`Rule has been switched to ${status.toUpperCase()} ✅`);
@@ -313,7 +310,6 @@
                             ? `<span class="badge bg-info text-dark">Pending activation</span>`
                             : `<span class="badge bg-info text-dark">Pending deactivation</span>`;
                     updateUIStatus(row, label);
-                    const resp = await updateStatusRule(switchRuleId, status, token);
                     if (resp.batch_id)
                         await waitForBatchToFinish(rule, resp.batch_id, resp.product_quantity, status);
                     showToast(`Rule has been switched to ${status.toUpperCase()} ✅`);
@@ -332,7 +328,6 @@
                     const waitTime = Math.max(msUntilStart - 10000, 0);
                     showToast(`⏰ Rule scheduled to start at ${startTime.toLocaleTimeString()}`);
                     console.log(`⏳ Waiting ${Math.round(waitTime / 1000)}s before polling batch...`);
-                    const resp = await updateStatusRule(switchRuleId, status, token);
                     if (resp.batch_id) {
                         await delay(waitTime);
                         await waitForBatchToFinish(rule, resp.batch_id, resp.product_quantity, status);
@@ -350,7 +345,6 @@
                         `<span class="badge bg-info text-dark">Stop at ${endTime.toLocaleTimeString()}</span>`
                     );
                     await delay(1000);
-                    const resp = await updateStatusRule(switchRuleId, status, token);
                     if (resp.batch_id){
                         await waitForBatchToFinish(rule, resp.batch_id, resp.product_quantity, status);
                         showToast(`Rule has been switched to INACTIVE ✅`);
@@ -366,7 +360,6 @@
                         row,
                         `<span class="badge bg-info text-dark">Pending deactivation</span>`
                     );
-                    const resp = await updateStatusRule(switchRuleId, status, token);
                     showToast(`Rule has been switched to INACTIVE ✅`);
                     await delay(1000);
                     applyFilter();
@@ -509,7 +502,7 @@
 </script>
 
 <!-- Modal Xác nhận -->
-<div class="modal" id="confirmSwitchModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="confirmSwitchModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content shadow-lg">
             <div class="modal-header bg-danger text-white">

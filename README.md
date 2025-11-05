@@ -1,61 +1,196 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 🚀 Hướng dẫn cài đặt và chạy dự án Laravel (Docker Version)
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+## 🧰 Yêu cầu hệ thống
+Trước khi bắt đầu, hãy đảm bảo bạn đã cài đặt các công cụ sau:
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
+- [Ngrok](https://ngrok.com/download)
+- [Node.js và NPM](https://nodejs.org/en/download)
 
-## About Laravel
+---
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## ⚙️ Bước 1: Cài đặt dự án
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Clone dự án về máy:
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+```bash
+git clone <link-repo-của-bạn>
+cd <tên-thư-mục-dự-án>
+```
 
-## Learning Laravel
+Cài đặt các package PHP (chạy trong container sau khi build xong):
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+```bash
+docker-compose exec app composer install
+```
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+Cài đặt các package JavaScript:
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+```bash
+docker-compose exec app npm install
+```
 
-## Laravel Sponsors
+---
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+## 🧾 Bước 2: Cấu hình môi trường
 
-### Premium Partners
+Tạo file `.env` (nếu chưa có):
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+```bash
+cp .env.example .env
+```
 
-## Contributing
+Tạo khóa ứng dụng:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+docker-compose exec app php artisan key:generate
+```
 
-## Code of Conduct
+Cập nhật thông tin database trong file `.env`:
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+```env
+DB_CONNECTION=mysql
+DB_HOST=db
+DB_PORT=3306
+DB_DATABASE=laravel
+DB_USERNAME=root
+DB_PASSWORD=root
+```
 
-## Security Vulnerabilities
+Chạy migrate để tạo bảng:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+docker-compose exec app php artisan migrate
+```
 
-## License
+---
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## 🌐 Bước 3: Cài và chạy Ngrok
+
+Nếu bạn chưa có Ngrok, tải và cài đặt tại:  
+👉 [https://ngrok.com/download](https://ngrok.com/download)
+
+Sau khi cài xong, chạy lệnh:
+
+```bash
+ngrok http 8080
+```
+
+Ngrok sẽ hiển thị một đường dẫn **Forwarding**, ví dụ:
+```
+Forwarding    https://example.ngrok.io -> http://localhost:8080
+```
+
+---
+
+## 🔧 Bước 4: Cập nhật APP_URL
+
+Mở file `.env` và thay dòng:
+
+```env
+APP_URL=http://localhost
+```
+
+bằng đường dẫn Ngrok vừa hiển thị, ví dụ:
+
+```env
+APP_URL=https://example.ngrok.io
+```
+
+---
+
+## ▶️ Bước 5: Khởi chạy dự án
+
+Khởi động toàn bộ ứng dụng bằng **Docker Compose**:
+
+```bash
+docker-compose up -d --build
+```
+
+> Lệnh này sẽ tự động tạo và chạy các container gồm:
+> - **app**: chứa mã Laravel (PHP-FPM)  
+> - **web**: máy chủ Nginx phục vụ Laravel  
+> - **db**: cơ sở dữ liệu MySQL  
+
+Sau khi các container đã chạy, ứng dụng sẽ hoạt động tại:  
+👉 [http://localhost:8080](http://localhost:8080)
+
+---
+
+Nếu bạn có sử dụng **queue hoặc job**, hãy chạy thêm container worker:
+
+```bash
+docker-compose exec app php artisan queue:work
+```
+
+Chạy build frontend (nếu có):
+
+```bash
+docker-compose exec app npm run dev
+```
+
+---
+
+## ✅ Kiểm tra hoạt động
+
+Sau khi chạy thành công, truy cập **đường dẫn Ngrok** (ví dụ:  
+👉 `https://example.ngrok.io`) để kiểm tra ứng dụng hoạt động đúng.  
+> Lưu ý: Đường dẫn này phải trỏ đến **cổng 8080** (hoặc cổng bạn đã cấu hình trong docker-compose).
+
+---
+
+## 🧹 Một số lệnh hữu ích
+
+Làm mới database:
+```bash
+docker-compose exec app php artisan migrate:fresh --seed
+```
+
+Xóa cache:
+```bash
+docker-compose exec app php artisan config:clear
+docker-compose exec app php artisan cache:clear
+docker-compose exec app php artisan route:clear
+docker-compose exec app php artisan view:clear
+```
+
+Dừng toàn bộ container:
+```bash
+docker-compose down
+```
+
+---
+
+## 📄 Ghi chú
+
+- Đảm bảo **chạy Ngrok** trước khi truy cập ứng dụng để tránh lỗi `APP_URL` không đúng.  
+- Khi thay đổi `APP_URL`, bạn **không cần rebuild container**, chỉ cần sửa `.env` và restart app:  
+  ```bash
+  docker-compose restart app
+  ```
+- Nếu dự án sử dụng **webhook** (Shopify, Zalo, v.v.), **Ngrok** là bắt buộc để nhận callback từ server bên ngoài.
+
+---
+
+## 🖼️ Một số hình ảnh giao diện
+
+### Giao diện chính
+![Home](images/home.png)
+
+### Giao diện Product
+![Product](images/product.png)
+
+### Giao diện Rule
+![Rule](images/rule.png)
+
+### Giao diện tạo Rule
+![Create Rule](images/createRule.png)
+
+---
+
+## 💡 Tính năng Rule
+
+Tính năng **Rule** cho phép bạn:
+- Chọn sản phẩm và đặt giá giảm theo rule trong khoảng thời gian tùy chọn.  
+- Khi hết thời gian, các sản phẩm sẽ **tự động quay về giá gốc**.  
+- Hỗ trợ hoạt động nền qua **queue job** và có thể giám sát qua **supervisor** hoặc container worker.
